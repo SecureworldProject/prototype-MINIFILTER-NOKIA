@@ -306,15 +306,33 @@ NTSTATUS instance_setup(_In_ PCFLT_RELATED_OBJECTS flt_objects, _In_ FLT_INSTANC
         // \Device\Mup: (Multiple UNC Provider) Kernel-mode component that uses UNC names to channel remote file system accesses to a network redirector (UNC provider) cappable of handling them.
 
         //if (RtlCompareUnicodeString(&ctx->Name, L"T:", FALSE)) {
-        if (wcscmp(ctx->Name.Buffer, L"K:") == 0) {
+        /*if (wcscmp(ctx->Name.Buffer, L"K:") == 0) {
             status = STATUS_SUCCESS;
             PRINT("SW: InstanceSetup:       K:      -->  Attached");
         } else {
             status = STATUS_FLT_DO_NOT_ATTACH;
             PRINT("SW: InstanceSetup:       Not K:  -->  Not attached");
-        }
+        }*/
 
-        PRINT("SW: InstanceSetup:     Real SectSize=0x%04x, Used SectSize=0x%04x, Name=\"%wZ\"\n", vol_prop->SectorSize, ctx->SectorSize, &ctx->Name);
+        PRINT("SW: InstanceSetup:   VOLUME Name = \"%wZ\", Len=%hu, MaxLen=%hu\n", &ctx->Name, ctx->Name.Length, ctx->Name.MaximumLength);
+        // By default no not attach
+        status = STATUS_FLT_DO_NOT_ATTACH;
+
+        // Check if name length is a letter plus colon (2 wide characters = 4 Bytes)
+        if (ctx->Name.Length == 4) {
+            // Attach by default if it is a letter drive
+            status = STATUS_SUCCESS;
+
+            // Check if it is internal drive, if it is, do not attach
+            int internal_drives_length = sizeof internal_drives / sizeof *internal_drives;
+            for (size_t i = 0; i < internal_drives_length; i++) {
+                if (wcscmp(ctx->Name.Buffer, internal_drives[i]) == 0) {
+                    status = STATUS_FLT_DO_NOT_ATTACH;
+                }
+            }
+        }
+        
+        PRINT("SW: InstanceSetup:   Attached=%s, Name=\"%wZ\", Real SectSize=0x%04x, Used SectSize=0x%04x\n", (status==STATUS_SUCCESS?"Yes":"No "), &ctx->Name, vol_prop->SectorSize, ctx->SectorSize);
 
     } finally {
 
@@ -1421,8 +1439,9 @@ void decrypt_XOR_same_buf(_Inout_ char* buf, _In_ ULONG length) {
 PUNICODE_STRING         %wZ
 ULONG                   %d
 char                    %c
+USHORT                  %hu
 
-
+http://www.cplusplus.com/reference/cstdio/printf/
 
 
 
